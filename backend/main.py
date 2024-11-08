@@ -1,7 +1,12 @@
 import mimetypes
 import pathlib
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import time
 import urllib.parse
+from jinja2 import Environment, FileSystemLoader
+import json
+
+JSON_FILE_PATH = "storage/data.json"
 
 
 class HttpHandler(BaseHTTPRequestHandler):
@@ -9,12 +14,20 @@ class HttpHandler(BaseHTTPRequestHandler):
         data = self.rfile.read(int(self.headers["Content-Length"]))
         data_parse = urllib.parse.unquote_plus(data.decode())
 
-        data_dict = {
+        form_data = {
             key: value for key, value in [el.split("=") for el in data_parse.split("&")]
         }
-        print("data_dict", data_dict)
-        self.send_response(302)
-        self.send_header("Location", "/")
+
+        username = form_data.get("username")
+        message = form_data.get("message")
+
+        if username and message:
+            self.save_to_json(username, message)
+            print("Message sent successfully!")
+
+        # Error after send data
+        self.send_response(303)
+        self.send_header("Location", "/message")
         self.end_headers()
 
     def do_GET(self):
@@ -23,6 +36,8 @@ class HttpHandler(BaseHTTPRequestHandler):
             self.send_html_file("index.html")
         elif pr_url.path == "/message":
             self.send_html_file("message.html")
+        elif pr_url.path == "/read":
+            self.render_read_page()
         else:
             if pathlib.Path().joinpath(pr_url.path[1:]).exists():
                 self.send_static()
@@ -47,9 +62,42 @@ class HttpHandler(BaseHTTPRequestHandler):
         with open(f".{self.path}", "rb") as file:
             self.wfile.write(file.read())
 
+    def save_to_json(self, username, message):
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+        new_entry = {timestamp: {"username": username, "message": message}}
+
+        try:
+            with open(JSON_FILE_PATH, "r") as file:
+                data = json.load(file)
+        except FileNotFoundError:
+            data = {}
+
+        data.update(new_entry)
+
+        with open(JSON_FILE_PATH, "w") as file:
+            json.dump(data, file, indent=2)
+
+    def render_read_page(self):
+        try:
+            with open(JSON_FILE_PATH, "r") as file:
+                data = json.load(file)
+        except FileNotFoundError:
+            data = {}
+
+        template_env = Environment(loader=FileSystemLoader(searchpath="./"))
+        template = template_env.get_template("read.html")
+
+        html_output = template.render(data=data)
+
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        self.wfile.write(html_output.encode())
+
 
 def run(server_class=HTTPServer, handler_class=HttpHandler):
     server_address = ("", 3000)
+    print("Server started on port 3000...")
     http = server_class(server_address, handler_class)
     try:
         http.serve_forever()
