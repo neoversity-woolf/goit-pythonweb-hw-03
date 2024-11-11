@@ -5,8 +5,15 @@ import time
 import urllib.parse
 from jinja2 import Environment, FileSystemLoader
 import json
+import logging
 
 JSON_FILE_PATH = "storage/data.json"
+
+logging.basicConfig(
+    format="%(asctime)s %(message)s",
+    level=logging.INFO,
+    handlers=[logging.StreamHandler()],
+)
 
 
 class HttpHandler(BaseHTTPRequestHandler):
@@ -86,7 +93,7 @@ class HttpHandler(BaseHTTPRequestHandler):
 
         template_env = Environment(loader=FileSystemLoader(searchpath="./"))
         template = template_env.get_template("read.html")
-
+        logging.info("Render template %s", template)
         html_output = template.render(data=data)
 
         self.send_response(200)
@@ -97,9 +104,11 @@ class HttpHandler(BaseHTTPRequestHandler):
 
 def run(server_class=HTTPServer, handler_class=HttpHandler):
     server_address = ("", 3000)
-    print("Server started on port 3000...")
     http = server_class(server_address, handler_class)
     try:
+        logging.info("Server started")
+        logging.info("Listening port: %s", server_address[1])
+        logging.info("Press CTRL + C to stop the server")
         http.serve_forever()
     except KeyboardInterrupt:
         http.server_close()
