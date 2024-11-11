@@ -85,6 +85,6 @@ This will start the application inside a container and make it available at `htt
 
 ## License
 
-This project is open-source and available under the [MIT License]().
+This project is open-source and available under the [MIT License](LICENSE).
 
 
